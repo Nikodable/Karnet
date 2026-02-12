@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="128" fill="#FF6B35"/>
+  <g transform="translate(256,256)">
+    <!-- Barbell icon -->
+    <rect x="-140" y="-16" width="280" height="32" rx="16" fill="white"/>
+    <rect x="-180" y="-56" width="48" height="112" rx="12" fill="white"/>
+    <rect x="132" y="-56" width="48" height="112" rx="12" fill="white"/>
+    <rect x="-200" y="-40" width="28" height="80" rx="8" fill="white" opacity="0.8"/>
+    <rect x="172" y="-40" width="28" height="80" rx="8" fill="white" opacity="0.8"/>
+  </g>
+</svg>
