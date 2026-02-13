@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Karnet</string>
+    <string name="title_activity_main">Karnet</string>
+    <string name="package_name">com.karnet.app</string>
+    <string name="custom_url_scheme">com.karnet.app</string>
+</resources>
