@@ -1,19 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { createKarnetTheme } from '../theme';
 import { db, getSettings } from '../data/db';
 
 export function useKarnetTheme() {
   const [mode, setMode] = useState<'light' | 'dark'>('light');
-  const [seedColor, setSeedColor] = useState('#FF6B35');
-  const [themePreference, setThemePreference] = useState<'light' | 'dark' | 'system'>('system');
 
-  // Load settings on mount
+  // Reactively watch settings from DB — any change triggers re-render
+  const settings = useLiveQuery(() => db.userSettings.get('default'));
+
+  // Initialize default settings if not yet created
   useEffect(() => {
-    getSettings().then((settings) => {
-      setThemePreference(settings.theme);
-      setSeedColor(settings.seedColor);
-    });
+    getSettings();
   }, []);
+
+  const seedColor = settings?.seedColor ?? '#FF6B35';
+  const themePreference = settings?.theme ?? 'system';
 
   // Listen to system preference
   useEffect(() => {
@@ -35,28 +37,10 @@ export function useKarnetTheme() {
     [mode, seedColor]
   );
 
-  const updateThemePreference = async (pref: 'light' | 'dark' | 'system') => {
-    setThemePreference(pref);
-    await db.userSettings.update('default', {
-      theme: pref,
-      updatedAt: new Date().toISOString(),
-    });
-  };
-
-  const updateSeedColor = async (color: string) => {
-    setSeedColor(color);
-    await db.userSettings.update('default', {
-      seedColor: color,
-      updatedAt: new Date().toISOString(),
-    });
-  };
-
   return {
     theme,
     mode,
     seedColor,
     themePreference,
-    updateThemePreference,
-    updateSeedColor,
   };
 }

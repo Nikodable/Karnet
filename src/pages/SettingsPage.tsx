@@ -9,7 +9,6 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
 import Switch from '@mui/material/Switch';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
@@ -66,7 +65,7 @@ export default function SettingsPage() {
   if (!settings) return null;
 
   return (
-    <Box>
+    <Box sx={{ pb: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <IconButton onClick={() => navigate(-1)}>
           <ArrowBackRoundedIcon />
@@ -84,44 +83,43 @@ export default function SettingsPage() {
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
-              <ListItemIcon><DarkModeRoundedIcon /></ListItemIcon>
-              <ListItemText primary={t('settings.theme')} />
-              <ListItemSecondaryAction>
-                <Select
-                  value={settings.theme}
-                  onChange={(e) => handleUpdate({ theme: e.target.value as 'light' | 'dark' | 'system' })}
-                  size="small"
-                  sx={{ minWidth: 120 }}
-                >
-                  <MenuItem value="system">{t('settings.system')}</MenuItem>
-                  <MenuItem value="light">{t('settings.light')}</MenuItem>
-                  <MenuItem value="dark">{t('settings.dark')}</MenuItem>
-                </Select>
-              </ListItemSecondaryAction>
+              <ListItemIcon sx={{ minWidth: 40 }}><DarkModeRoundedIcon /></ListItemIcon>
+              <ListItemText primary={t('settings.theme')} sx={{ mr: 2 }} />
+              <Select
+                value={settings.theme}
+                onChange={(e) => handleUpdate({ theme: e.target.value as 'light' | 'dark' | 'system' })}
+                size="small"
+                sx={{ minWidth: 110 }}
+              >
+                <MenuItem value="system">{t('settings.system')}</MenuItem>
+                <MenuItem value="light">{t('settings.light')}</MenuItem>
+                <MenuItem value="dark">{t('settings.dark')}</MenuItem>
+              </Select>
             </ListItem>
             <Divider variant="inset" component="li" />
             <ListItem>
-              <ListItemIcon><PaletteRoundedIcon /></ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 40 }}><PaletteRoundedIcon /></ListItemIcon>
               <ListItemText
                 primary={t('settings.seedColor')}
                 secondary={t('settings.dynamicColor')}
               />
             </ListItem>
             <ListItem>
-              <Stack direction="row" spacing={1.5} sx={{ pl: 7, pb: 1 }}>
+              <Stack direction="row" spacing={1} sx={{ pl: 5, pb: 1, flexWrap: 'wrap', gap: 1 }}>
                 {SEED_COLORS.map((color) => (
                   <Box
                     key={color}
                     onClick={() => handleUpdate({ seedColor: color })}
                     sx={{
-                      width: 40,
-                      height: 40,
+                      width: 36,
+                      height: 36,
                       borderRadius: '50%',
                       backgroundColor: color,
                       cursor: 'pointer',
                       border: settings.seedColor === color ? '3px solid' : '2px solid transparent',
                       borderColor: settings.seedColor === color ? 'text.primary' : 'transparent',
                       transition: 'all 0.2s ease',
+                      flexShrink: 0,
                       '&:hover': { transform: 'scale(1.15)' },
                     }}
                   />
@@ -140,38 +138,34 @@ export default function SettingsPage() {
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
-              <ListItemIcon><LanguageRoundedIcon /></ListItemIcon>
-              <ListItemText primary={t('settings.language')} />
-              <ListItemSecondaryAction>
-                <Select
-                  value={i18n.language?.startsWith('fr') ? 'fr' : 'en'}
-                  onChange={(e) => {
-                    i18n.changeLanguage(e.target.value as string);
-                    handleUpdate({ language: e.target.value as string });
-                  }}
-                  size="small"
-                  sx={{ minWidth: 120 }}
-                >
-                  <MenuItem value="fr">Français</MenuItem>
-                  <MenuItem value="en">English</MenuItem>
-                </Select>
-              </ListItemSecondaryAction>
+              <ListItemIcon sx={{ minWidth: 40 }}><LanguageRoundedIcon /></ListItemIcon>
+              <ListItemText primary={t('settings.language')} sx={{ mr: 2 }} />
+              <Select
+                value={i18n.language?.startsWith('fr') ? 'fr' : 'en'}
+                onChange={(e) => {
+                  i18n.changeLanguage(e.target.value as string);
+                  handleUpdate({ language: e.target.value as string });
+                }}
+                size="small"
+                sx={{ minWidth: 110 }}
+              >
+                <MenuItem value="fr">Français</MenuItem>
+                <MenuItem value="en">English</MenuItem>
+              </Select>
             </ListItem>
             <Divider variant="inset" component="li" />
             <ListItem>
-              <ListItemIcon><FitnessCenterRoundedIcon /></ListItemIcon>
-              <ListItemText primary={t('settings.weightUnit')} />
-              <ListItemSecondaryAction>
-                <Select
-                  value={settings.weightUnit}
-                  onChange={(e) => handleUpdate({ weightUnit: e.target.value as 'kg' | 'lbs' })}
-                  size="small"
-                  sx={{ minWidth: 80 }}
-                >
-                  <MenuItem value="kg">kg</MenuItem>
-                  <MenuItem value="lbs">lbs</MenuItem>
-                </Select>
-              </ListItemSecondaryAction>
+              <ListItemIcon sx={{ minWidth: 40 }}><FitnessCenterRoundedIcon /></ListItemIcon>
+              <ListItemText primary={t('settings.weightUnit')} sx={{ mr: 2 }} />
+              <Select
+                value={settings.weightUnit}
+                onChange={(e) => handleUpdate({ weightUnit: e.target.value as 'kg' | 'lbs' })}
+                size="small"
+                sx={{ minWidth: 80 }}
+              >
+                <MenuItem value="kg">kg</MenuItem>
+                <MenuItem value="lbs">lbs</MenuItem>
+              </Select>
             </ListItem>
           </List>
         </CardContent>
@@ -185,7 +179,7 @@ export default function SettingsPage() {
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
-              <ListItemIcon><TimerRoundedIcon /></ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 40 }}><TimerRoundedIcon /></ListItemIcon>
               <ListItemText
                 primary={t('settings.defaultRestTime')}
                 secondary={formatTime(settings.defaultRestTimer)}
@@ -205,25 +199,21 @@ export default function SettingsPage() {
             </ListItem>
             <Divider variant="inset" component="li" />
             <ListItem>
-              <ListItemIcon><VolumeUpRoundedIcon /></ListItemIcon>
-              <ListItemText primary={t('settings.sound')} />
-              <ListItemSecondaryAction>
-                <Switch
-                  checked={settings.timerSound}
-                  onChange={(e) => handleUpdate({ timerSound: e.target.checked })}
-                />
-              </ListItemSecondaryAction>
+              <ListItemIcon sx={{ minWidth: 40 }}><VolumeUpRoundedIcon /></ListItemIcon>
+              <ListItemText primary={t('settings.sound')} sx={{ mr: 2 }} />
+              <Switch
+                checked={settings.timerSound}
+                onChange={(e) => handleUpdate({ timerSound: e.target.checked })}
+              />
             </ListItem>
             <Divider variant="inset" component="li" />
             <ListItem>
-              <ListItemIcon><VibrationRoundedIcon /></ListItemIcon>
-              <ListItemText primary={t('settings.vibration')} />
-              <ListItemSecondaryAction>
-                <Switch
-                  checked={settings.timerVibration}
-                  onChange={(e) => handleUpdate({ timerVibration: e.target.checked })}
-                />
-              </ListItemSecondaryAction>
+              <ListItemIcon sx={{ minWidth: 40 }}><VibrationRoundedIcon /></ListItemIcon>
+              <ListItemText primary={t('settings.vibration')} sx={{ mr: 2 }} />
+              <Switch
+                checked={settings.timerVibration}
+                onChange={(e) => handleUpdate({ timerVibration: e.target.checked })}
+              />
             </ListItem>
           </List>
         </CardContent>
@@ -237,16 +227,15 @@ export default function SettingsPage() {
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
-              <ListItemIcon><CloudSyncRoundedIcon /></ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 40 }}><CloudSyncRoundedIcon /></ListItemIcon>
               <ListItemText
                 primary={t('settings.account')}
                 secondary={t('settings.signIn')}
+                sx={{ mr: 2 }}
               />
-              <ListItemSecondaryAction>
-                <Button variant="outlined" size="small" sx={{ borderRadius: 20 }}>
-                  {t('settings.signIn')}
-                </Button>
-              </ListItemSecondaryAction>
+              <Button variant="outlined" size="small" sx={{ borderRadius: 20, flexShrink: 0 }}>
+                {t('settings.signIn')}
+              </Button>
             </ListItem>
             <Divider variant="inset" component="li" />
             <ListItem
@@ -254,7 +243,7 @@ export default function SettingsPage() {
               onClick={() => setDeleteDialogOpen(true)}
               sx={{ cursor: 'pointer' }}
             >
-              <ListItemIcon><DeleteForeverRoundedIcon color="error" /></ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 40 }}><DeleteForeverRoundedIcon color="error" /></ListItemIcon>
               <ListItemText
                 primary={t('settings.deleteAllData')}
                 primaryTypographyProps={{ color: 'error' }}
@@ -269,7 +258,7 @@ export default function SettingsPage() {
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
-              <ListItemIcon><InfoRoundedIcon /></ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 40 }}><InfoRoundedIcon /></ListItemIcon>
               <ListItemText
                 primary={t('settings.about')}
                 secondary="Karnet v1.0.0"

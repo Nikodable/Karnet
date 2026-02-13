@@ -7,10 +7,11 @@ export default function AppShell() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        height: '100dvh',
         backgroundColor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
       <TopBar />
@@ -24,6 +25,8 @@ export default function AppShell() {
           maxWidth: 600,
           mx: 'auto',
           width: '100%',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <Outlet />

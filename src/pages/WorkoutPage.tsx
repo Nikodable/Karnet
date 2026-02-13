@@ -160,24 +160,31 @@ export default function WorkoutPage() {
   // Live queries
   // ==========================================
 
-  // Find or create active session
-  const activeSession = useLiveQuery(async () => {
-    const sessions = await db.workoutSessions
-      .where('status')
-      .equals('in_progress')
-      .toArray();
+  // Read-only query for active sessions
+  const activeSessions = useLiveQuery(
+    () => db.workoutSessions.where('status').equals('in_progress').toArray(),
+    []
+  );
 
-    if (sessions.length > 0) {
-      sessionIdRef.current = sessions[0].id;
-      return sessions[0];
+  const activeSession = activeSessions?.[0] ?? null;
+
+  // Create a new session in a separate effect (no side-effects in useLiveQuery)
+  const creatingRef = useRef(false);
+  useEffect(() => {
+    if (activeSessions === undefined) return; // still loading
+    if (activeSessions.length > 0) {
+      sessionIdRef.current = activeSessions[0].id;
+      return;
     }
+    if (creatingRef.current) return;
 
-    // No active session: create one
+    creatingRef.current = true;
     const newSession = createNewSession();
-    await db.workoutSessions.put(newSession);
     sessionIdRef.current = newSession.id;
-    return newSession;
-  }, []);
+    db.workoutSessions.put(newSession).finally(() => {
+      creatingRef.current = false;
+    });
+  }, [activeSessions]);
 
   // All exercises from DB
   const allExercises = useLiveQuery(() => db.exercises.toArray(), []);

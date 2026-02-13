@@ -41,7 +41,7 @@ function getGreetingKey(): string {
 }
 
 function formatDate(locale: string): string {
-  return new Date().toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+  return new Date().toLocaleDateString(locale.startsWith('fr') ? 'fr-FR' : 'en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -640,7 +640,7 @@ export default function HomePage() {
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Typography variant="caption" sx={{ color: colors.onSurfaceVariant }}>
                           {new Date(session.date).toLocaleDateString(
-                            i18n.language === 'fr' ? 'fr-FR' : 'en-US',
+                            i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US',
                             { weekday: 'short', day: 'numeric', month: 'short' },
                           )}
                         </Typography>
