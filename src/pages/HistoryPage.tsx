@@ -158,7 +158,7 @@ export default function HistoryPage() {
           </Typography>
 
           {/* Calendar grid */}
-          <Card sx={{ borderRadius: 5, mb: 2 }}>
+          <Card sx={{ borderRadius: 3, mb: 2 }}>
             <CardContent sx={{ p: 1.5 }}>
               {/* Day labels */}
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5, mb: 1 }}>

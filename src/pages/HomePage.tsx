@@ -157,7 +157,7 @@ export default function HomePage() {
       <Card
         elevation={0}
         sx={{
-          borderRadius: '24px',
+          borderRadius: '16px',
           background: `linear-gradient(135deg, ${colors.primaryContainer} 0%, ${colors.primary}22 100%)`,
           position: 'relative',
           overflow: 'hidden',
@@ -214,7 +214,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.primaryContainer,
               border: `2px solid ${colors.primary}44`,
               cursor: 'pointer',
@@ -278,7 +278,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.surfaceContainerLow,
             }}
           >
@@ -314,7 +314,7 @@ export default function HomePage() {
                 startIcon={<PlayArrowRounded />}
                 onClick={() => navigate('/workout/new')}
                 sx={{
-                  borderRadius: '20px',
+                  borderRadius: '16px',
                   px: 4,
                   py: 1.5,
                   fontWeight: 600,
@@ -420,7 +420,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.surfaceContainerLow,
               cursor: 'pointer',
             }}
@@ -520,7 +520,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.surfaceContainerLow,
               border: `1px dashed ${colors.outline}`,
             }}
@@ -544,7 +544,7 @@ export default function HomePage() {
                 size="small"
                 onClick={() => navigate('/programs/new')}
                 sx={{
-                  borderRadius: '20px',
+                  borderRadius: '16px',
                   borderColor: colors.primary,
                   color: colors.primary,
                   fontWeight: 600,
@@ -594,7 +594,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.surfaceContainerLow,
               overflow: 'hidden',
             }}
@@ -684,7 +684,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.surfaceContainerLow,
             }}
           >
@@ -757,7 +757,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.surfaceContainerLow,
               overflow: 'hidden',
             }}
@@ -816,7 +816,7 @@ export default function HomePage() {
           <Card
             elevation={0}
             sx={{
-              borderRadius: '24px',
+              borderRadius: '16px',
               backgroundColor: colors.surfaceContainerLow,
             }}
           >
@@ -875,7 +875,7 @@ function StatCard({ icon, label, value, bgColor, fgColor, iconBg, iconColor }: S
     <Card
       elevation={0}
       sx={{
-        borderRadius: '24px',
+        borderRadius: '16px',
         backgroundColor: bgColor,
         minWidth: 140,
         flexShrink: 0,

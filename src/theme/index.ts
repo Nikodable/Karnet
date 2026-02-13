@@ -235,7 +235,7 @@ export function createKarnetTheme(
       divider: scheme.outlineVariant,
     },
     shape: {
-      borderRadius: 16, // M3 Expressive uses larger radii
+      borderRadius: 4,
     },
     typography: {
       fontFamily: '"Roboto Flex", "Roboto", "Helvetica", "Arial", sans-serif',
@@ -275,7 +275,7 @@ export function createKarnetTheme(
       MuiCard: {
         styleOverrides: {
           root: {
-            borderRadius: 20,
+            borderRadius: 16,
             backgroundImage: 'none',
           },
         },
@@ -298,7 +298,7 @@ export function createKarnetTheme(
       MuiDialog: {
         styleOverrides: {
           paper: {
-            borderRadius: 28,
+            borderRadius: 20,
           },
         },
       },

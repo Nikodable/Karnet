@@ -275,7 +275,7 @@ export default function AnalysisPage() {
               </Box>
 
               {/* Volume chart */}
-              <Card sx={{ borderRadius: 5 }}>
+              <Card sx={{ borderRadius: 3 }}>
                 <CardContent>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
                     {t('analysis.volumeOverTime')}
@@ -306,7 +306,7 @@ export default function AnalysisPage() {
               </Card>
 
               {/* Activity heatmap */}
-              <Card sx={{ borderRadius: 5 }}>
+              <Card sx={{ borderRadius: 3 }}>
                 <CardContent>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
                     {t('analysis.heatmap')}
@@ -377,7 +377,7 @@ export default function AnalysisPage() {
 
               {selectedExercise && progressionData.length > 0 ? (
                 <>
-                  <Card sx={{ borderRadius: 5 }}>
+                  <Card sx={{ borderRadius: 3 }}>
                     <CardContent>
                       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
                         {t('analysis.exerciseProgression')}
@@ -401,7 +401,7 @@ export default function AnalysisPage() {
                     </CardContent>
                   </Card>
 
-                  <Card sx={{ borderRadius: 5 }}>
+                  <Card sx={{ borderRadius: 3 }}>
                     <CardContent>
                       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
                         {t('analysis.estimated1RM')}
@@ -438,7 +438,7 @@ export default function AnalysisPage() {
           {/* DISTRIBUTION */}
           {tabValue === 2 && (
             <Stack spacing={2}>
-              <Card sx={{ borderRadius: 5 }}>
+              <Card sx={{ borderRadius: 3 }}>
                 <CardContent>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
                     {t('analysis.muscleDistribution')}

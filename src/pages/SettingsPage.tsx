@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -21,6 +21,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Slider from '@mui/material/Slider';
 import Stack from '@mui/material/Stack';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PaletteRoundedIcon from '@mui/icons-material/PaletteRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
@@ -29,6 +31,8 @@ import FitnessCenterRoundedIcon from '@mui/icons-material/FitnessCenterRounded';
 import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import VibrationRoundedIcon from '@mui/icons-material/VibrationRounded';
+import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
+import RestoreRoundedIcon from '@mui/icons-material/RestoreRounded';
 import CloudSyncRoundedIcon from '@mui/icons-material/CloudSyncRounded';
 import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
@@ -52,6 +56,11 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false, message: '', severity: 'success',
+  });
 
   useEffect(() => {
     getSettings().then(setSettings);
@@ -61,6 +70,96 @@ export default function SettingsPage() {
     await updateSettings(updates);
     setSettings((prev) => (prev ? { ...prev, ...updates } : prev));
   };
+
+  // --- Backup: export all data as JSON ---
+  const handleBackup = useCallback(async () => {
+    try {
+      const data = {
+        version: '0.2.0',
+        exportDate: new Date().toISOString(),
+        workoutSessions: await db.workoutSessions.toArray(),
+        exercises: await db.exercises.filter((e) => e.isCustom).toArray(),
+        programs: await db.programs.toArray(),
+        objectives: await db.objectives.toArray(),
+        bodyMeasurements: await db.bodyMeasurements.toArray(),
+        personalRecords: await db.personalRecords.toArray(),
+        userSettings: await db.userSettings.toArray(),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const date = new Date().toISOString().split('T')[0];
+      a.download = `karnet-backup-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setSnackbar({ open: true, message: t('settings.backupSuccess'), severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: t('common.error'), severity: 'error' });
+    }
+  }, [t]);
+
+  // --- Restore: import JSON backup ---
+  const handleRestoreClick = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        setPendingRestoreFile(file);
+        setRestoreDialogOpen(true);
+      }
+    };
+    input.click();
+  }, []);
+
+  const handleRestoreConfirm = useCallback(async () => {
+    if (!pendingRestoreFile) return;
+    try {
+      const text = await pendingRestoreFile.text();
+      const data = JSON.parse(text);
+      if (!data.version || !data.exportDate) throw new Error('Invalid backup file');
+
+      if (data.workoutSessions?.length) {
+        await db.workoutSessions.clear();
+        await db.workoutSessions.bulkPut(data.workoutSessions);
+      }
+      if (data.exercises?.length) {
+        await db.exercises.bulkPut(data.exercises);
+      }
+      if (data.programs?.length) {
+        await db.programs.clear();
+        await db.programs.bulkPut(data.programs);
+      }
+      if (data.objectives?.length) {
+        await db.objectives.clear();
+        await db.objectives.bulkPut(data.objectives);
+      }
+      if (data.bodyMeasurements?.length) {
+        await db.bodyMeasurements.clear();
+        await db.bodyMeasurements.bulkPut(data.bodyMeasurements);
+      }
+      if (data.personalRecords?.length) {
+        await db.personalRecords.clear();
+        await db.personalRecords.bulkPut(data.personalRecords);
+      }
+      if (data.userSettings?.length) {
+        await db.userSettings.bulkPut(data.userSettings);
+        const refreshed = await getSettings();
+        setSettings(refreshed);
+      }
+
+      setSnackbar({ open: true, message: t('settings.restoreSuccess'), severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: t('settings.restoreError'), severity: 'error' });
+    } finally {
+      setRestoreDialogOpen(false);
+      setPendingRestoreFile(null);
+    }
+  }, [pendingRestoreFile, t]);
 
   if (!settings) return null;
 
@@ -79,7 +178,7 @@ export default function SettingsPage() {
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, ml: 1 }}>
         {t('settings.appearance')}
       </Typography>
-      <Card sx={{ borderRadius: 5, mb: 3 }}>
+      <Card sx={{ borderRadius: 3, mb: 3 }}>
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
@@ -134,7 +233,7 @@ export default function SettingsPage() {
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, ml: 1 }}>
         {t('settings.general')}
       </Typography>
-      <Card sx={{ borderRadius: 5, mb: 3 }}>
+      <Card sx={{ borderRadius: 3, mb: 3 }}>
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
@@ -175,7 +274,7 @@ export default function SettingsPage() {
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, ml: 1 }}>
         {t('settings.timer')}
       </Typography>
-      <Card sx={{ borderRadius: 5, mb: 3 }}>
+      <Card sx={{ borderRadius: 3, mb: 3 }}>
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
@@ -223,9 +322,25 @@ export default function SettingsPage() {
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, ml: 1 }}>
         {t('settings.data')}
       </Typography>
-      <Card sx={{ borderRadius: 5, mb: 3 }}>
+      <Card sx={{ borderRadius: 3, mb: 3 }}>
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
+            <ListItem>
+              <ListItemIcon sx={{ minWidth: 40 }}><SaveRoundedIcon /></ListItemIcon>
+              <ListItemText primary={t('settings.exportData')} sx={{ mr: 2 }} />
+              <Button variant="outlined" size="small" onClick={handleBackup} sx={{ borderRadius: 20, flexShrink: 0 }}>
+                {t('settings.exportData')}
+              </Button>
+            </ListItem>
+            <Divider variant="inset" component="li" />
+            <ListItem>
+              <ListItemIcon sx={{ minWidth: 40 }}><RestoreRoundedIcon /></ListItemIcon>
+              <ListItemText primary={t('settings.importData')} sx={{ mr: 2 }} />
+              <Button variant="outlined" size="small" onClick={handleRestoreClick} sx={{ borderRadius: 20, flexShrink: 0 }}>
+                {t('settings.importData')}
+              </Button>
+            </ListItem>
+            <Divider variant="inset" component="li" />
             <ListItem>
               <ListItemIcon sx={{ minWidth: 40 }}><CloudSyncRoundedIcon /></ListItemIcon>
               <ListItemText
@@ -254,14 +369,14 @@ export default function SettingsPage() {
       </Card>
 
       {/* About */}
-      <Card sx={{ borderRadius: 5, mb: 3 }}>
+      <Card sx={{ borderRadius: 3, mb: 3 }}>
         <CardContent sx={{ p: 0 }}>
           <List disablePadding>
             <ListItem>
               <ListItemIcon sx={{ minWidth: 40 }}><InfoRoundedIcon /></ListItemIcon>
               <ListItemText
                 primary={t('settings.about')}
-                secondary="Karnet v1.0.0"
+                secondary="Karnet v0.2.0"
               />
             </ListItem>
           </List>
@@ -292,6 +407,44 @@ export default function SettingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Restore Confirmation Dialog */}
+      <Dialog open={restoreDialogOpen} onClose={() => { setRestoreDialogOpen(false); setPendingRestoreFile(null); }}>
+        <DialogTitle>{t('settings.importData')}</DialogTitle>
+        <DialogContent>
+          <Typography>{t('settings.confirmRestore')}</Typography>
+          {pendingRestoreFile && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              {pendingRestoreFile.name}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setRestoreDialogOpen(false); setPendingRestoreFile(null); }}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="contained" onClick={handleRestoreConfirm}>
+            {t('common.confirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ mb: 10 }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          sx={{ borderRadius: 3 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
