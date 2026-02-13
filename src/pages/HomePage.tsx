@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +19,7 @@ import EmojiEventsRounded from '@mui/icons-material/EmojiEventsRounded';
 import PlayArrowRounded from '@mui/icons-material/PlayArrowRounded';
 import WhatshotRounded from '@mui/icons-material/WhatshotRounded';
 
+import { v4 as uuid } from 'uuid';
 import { db } from '../data/db';
 import {
   sessionsThisWeek,
@@ -27,7 +28,7 @@ import {
   formatDuration,
   formatWeight,
 } from '../utils/calculations';
-import type { WorkoutSession } from '../types';
+import type { WorkoutSession, ProgramWorkout } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -144,6 +145,49 @@ export default function HomePage() {
 
   // ---- Date string ----
   const todayFormatted = useMemo(() => formatDate(i18n.language), [i18n.language]);
+
+  // ---- Quick start from program ----
+  const startWorkoutFromProgram = useCallback(
+    async (programWorkout: ProgramWorkout) => {
+      // If a session is already running, just navigate to it
+      if (activeSession) {
+        navigate('/workout/new');
+        return;
+      }
+      const now = new Date().toISOString();
+      const newSession: WorkoutSession = {
+        id: uuid(),
+        programId: activeProgram?.id,
+        programName: activeProgram?.name,
+        name: programWorkout.name,
+        date: now.split('T')[0],
+        startTime: now,
+        exercises: programWorkout.exercises.map((pe, idx) => ({
+          id: uuid(),
+          exerciseId: pe.exerciseId,
+          exerciseName: pe.exerciseName,
+          order: idx,
+          sets: Array.from({ length: pe.targetSets }, (_, i) => ({
+            id: uuid(),
+            setNumber: i + 1,
+            type: 'normal' as const,
+            weight: pe.targetWeight,
+            reps: pe.targetReps,
+            restAfter: pe.restBetweenSets || 90,
+            completed: false,
+          })),
+          machineSettings: pe.machineSettings,
+          notes: pe.notes,
+        })),
+        status: 'in_progress',
+        createdAt: now,
+        updatedAt: now,
+      };
+      await db.workoutSessions.put(newSession);
+      navigate('/workout/new');
+    },
+    [activeSession, activeProgram, navigate]
+  );
 
   // =====================================================================
   // RENDER
@@ -511,6 +555,44 @@ export default function HomePage() {
                         })
                       : t('home.workoutsCount', { count: activeProgram.workouts.length })}
                   </Typography>
+
+                  {/* Quick-start buttons for each program workout */}
+                  <Stack spacing={0.75} sx={{ mt: 1.5 }}>
+                    {activeProgram.workouts.map((pw) => (
+                      <Button
+                        key={pw.id}
+                        variant="outlined"
+                        size="small"
+                        startIcon={<PlayArrowRounded />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startWorkoutFromProgram(pw);
+                        }}
+                        sx={{
+                          borderRadius: '14px',
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          justifyContent: 'flex-start',
+                          borderColor: `${colors.primary}44`,
+                          color: colors.primary,
+                          fontSize: '0.8rem',
+                          py: 0.75,
+                          '&:hover': { borderColor: colors.primary, bgcolor: `${colors.primary}08` },
+                        }}
+                      >
+                        {pw.name}
+                        {pw.exercises.length > 0 && (
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            sx={{ ml: 'auto', color: colors.onSurfaceVariant, opacity: 0.7 }}
+                          >
+                            {pw.exercises.length} ex.
+                          </Typography>
+                        )}
+                      </Button>
+                    ))}
+                  </Stack>
                 </Box>
               )}
             </CardContent>
