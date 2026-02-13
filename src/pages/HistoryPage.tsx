@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import Box from '@mui/material/Box';
@@ -16,6 +16,11 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import Collapse from '@mui/material/Collapse';
+import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import FitnessCenterRoundedIcon from '@mui/icons-material/FitnessCenterRounded';
@@ -35,7 +40,7 @@ import {
 } from 'date-fns';
 import { fr } from 'date-fns/locale/fr';
 import { db } from '../data/db';
-import type { WorkoutSession } from '../types';
+import type { WorkoutSession, MuscleGroup } from '../types';
 import {
   sessionVolume,
   sessionTotalSets,
@@ -43,6 +48,12 @@ import {
   formatDuration,
   formatWeight,
 } from '../utils/calculations';
+
+const MUSCLE_GROUPS: MuscleGroup[] = [
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms',
+  'quadriceps', 'hamstrings', 'glutes', 'calves', 'abs', 'obliques',
+  'traps', 'lats', 'cardio', 'full_body',
+];
 
 export default function HistoryPage() {
   const { t, i18n } = useTranslation();
@@ -52,12 +63,32 @@ export default function HistoryPage() {
   const [detailSession, setDetailSession] = useState<WorkoutSession | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Filter state
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterExercise, setFilterExercise] = useState('');
+  const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
+
   const locale = i18n.language?.startsWith('fr') ? fr : undefined;
 
   const sessions = useLiveQuery(
     () => db.workoutSessions.where('status').equals('completed').reverse().sortBy('date'),
     []
   );
+
+  // All exercises (for muscle-group filter)
+  const allExercises = useLiveQuery(() => db.exercises.toArray(), []);
+
+  const exerciseMap = useMemo(() => {
+    if (!allExercises) return new Map<string, MuscleGroup>();
+    return new Map(allExercises.map((e) => [e.id, e.category]));
+  }, [allExercises]);
+
+  const hasActiveFilter = filterExercise.trim() !== '' || filterMuscle !== 'all';
+
+  const clearFilter = useCallback(() => {
+    setFilterExercise('');
+    setFilterMuscle('all');
+  }, []);
 
   // Calendar data
   const calendarDays = useMemo(() => {
@@ -67,34 +98,54 @@ export default function HistoryPage() {
   }, [currentMonth]);
 
   const sessionDates = useMemo(() => {
-    if (!sessions) return new Set<string>();
-    return new Set(sessions.map((s) => s.date.split('T')[0]));
-  }, [sessions]);
+    return new Set(filteredSessions.map((s) => s.date.split('T')[0]));
+  }, [filteredSessions]);
 
   const monthSessions = useMemo(() => {
-    if (!sessions) return [];
-    return sessions.filter((s) => {
+    return filteredSessions.filter((s) => {
       const d = new Date(s.date);
       return isSameMonth(d, currentMonth);
     });
-  }, [sessions, currentMonth]);
+  }, [filteredSessions, currentMonth]);
 
   const selectedDaySessions = useMemo(() => {
-    if (!sessions || !selectedDate) return [];
-    return sessions.filter((s) => isSameDay(new Date(s.date), selectedDate));
-  }, [sessions, selectedDate]);
+    if (!selectedDate) return [];
+    return filteredSessions.filter((s) => isSameDay(new Date(s.date), selectedDate));
+  }, [filteredSessions, selectedDate]);
+
+  // Apply exercise/muscle filter to all sessions
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    if (!hasActiveFilter) return sessions;
+    return sessions.filter((session) => {
+      if (filterExercise.trim()) {
+        const q = filterExercise.toLowerCase();
+        const match = session.exercises.some((ex) =>
+          ex.exerciseName.toLowerCase().includes(q)
+        );
+        if (!match) return false;
+      }
+      if (filterMuscle !== 'all') {
+        const match = session.exercises.some((ex) => {
+          const cat = exerciseMap.get(ex.exerciseId);
+          return cat === filterMuscle;
+        });
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [sessions, filterExercise, filterMuscle, exerciseMap, hasActiveFilter]);
 
   // Group sessions by month for list view
   const groupedSessions = useMemo(() => {
-    if (!sessions) return {};
     const groups: Record<string, WorkoutSession[]> = {};
-    for (const s of sessions) {
+    for (const s of filteredSessions) {
       const key = format(new Date(s.date), 'yyyy-MM');
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     }
     return groups;
-  }, [sessions]);
+  }, [filteredSessions]);
 
   const handleDelete = async (id: string) => {
     await db.workoutSessions.delete(id);
@@ -115,9 +166,68 @@ export default function HistoryPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
-        {t('history.title')}
-      </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          {t('history.title')}
+        </Typography>
+        <IconButton
+          onClick={() => setFilterOpen((v) => !v)}
+          sx={{
+            bgcolor: hasActiveFilter ? 'primary.main' : 'action.hover',
+            color: hasActiveFilter ? 'primary.contrastText' : 'text.primary',
+            borderRadius: '12px',
+          }}
+        >
+          <FilterListRoundedIcon />
+        </IconButton>
+      </Stack>
+
+      {/* Filter panel */}
+      <Collapse in={filterOpen}>
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 3 }}>
+          <TextField
+            value={filterExercise}
+            onChange={(e) => setFilterExercise(e.target.value)}
+            placeholder="Exercice..."
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '12px', bgcolor: 'background.paper' } }}
+          />
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+            <Chip
+              label="Tous"
+              size="small"
+              variant={filterMuscle === 'all' ? 'filled' : 'outlined'}
+              color={filterMuscle === 'all' ? 'primary' : 'default'}
+              onClick={() => setFilterMuscle('all')}
+              sx={{ borderRadius: '10px', fontWeight: 600 }}
+            />
+            {MUSCLE_GROUPS.map((mg) => (
+              <Chip
+                key={mg}
+                label={t(`exercise.muscles.${mg}`)}
+                size="small"
+                variant={filterMuscle === mg ? 'filled' : 'outlined'}
+                color={filterMuscle === mg ? 'primary' : 'default'}
+                onClick={() => setFilterMuscle(filterMuscle === mg ? 'all' : mg)}
+                sx={{ borderRadius: '10px', fontWeight: 600 }}
+              />
+            ))}
+          </Box>
+          {hasActiveFilter && (
+            <Button size="small" onClick={clearFilter} sx={{ mt: 1, borderRadius: '10px', textTransform: 'none' }}>
+              Effacer les filtres
+            </Button>
+          )}
+        </Box>
+      </Collapse>
 
       {/* Tabs */}
       <Tabs
@@ -264,7 +374,7 @@ export default function HistoryPage() {
       {/* LIST VIEW */}
       {tabValue === 1 && (
         <Box>
-          {!sessions || sessions.length === 0 ? (
+          {filteredSessions.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <FitnessCenterRoundedIcon sx={{ fontSize: 64, color: 'text.secondary', opacity: 0.4 }} />
               <Typography color="text.secondary" sx={{ mt: 2 }}>

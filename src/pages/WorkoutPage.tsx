@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import { db } from '../data/db';
+import { useTimer } from '../hooks/useTimer';
 import {
   formatTime,
   sessionVolume,
@@ -11,6 +12,7 @@ import {
   sessionTotalReps,
   formatDuration,
   formatWeight,
+  estimate1RM,
 } from '../utils/calculations';
 import type {
   WorkoutSession,
@@ -48,6 +50,9 @@ import Slide from '@mui/material/Slide';
 import InputAdornment from '@mui/material/InputAdornment';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import LinearProgress from '@mui/material/LinearProgress';
 
 
 // --- MUI Icons ---
@@ -60,6 +65,8 @@ import SearchRounded from '@mui/icons-material/SearchRounded';
 import DoneAllRounded from '@mui/icons-material/DoneAllRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
+import EmojiEventsRounded from '@mui/icons-material/EmojiEventsRounded';
+import TimerRounded from '@mui/icons-material/TimerRounded';
 import SentimentVeryDissatisfiedRounded from '@mui/icons-material/SentimentVeryDissatisfiedRounded';
 import SentimentSatisfiedRounded from '@mui/icons-material/SentimentSatisfiedRounded';
 import SentimentVerySatisfiedRounded from '@mui/icons-material/SentimentVerySatisfiedRounded';
@@ -156,6 +163,12 @@ export default function WorkoutPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
 
+  // --- Rest timer ---
+  const timer = useTimer(90, { sound: true, vibration: true });
+
+  // --- PR snackbar ---
+  const [prSnackbar, setPrSnackbar] = useState<string | null>(null);
+
   // ==========================================
   // Live queries
   // ==========================================
@@ -189,6 +202,15 @@ export default function WorkoutPage() {
   // All exercises from DB
   const allExercises = useLiveQuery(() => db.exercises.toArray(), []);
 
+  // Completed sessions (for "dernière perf")
+  const completedSessions = useLiveQuery(
+    () => db.workoutSessions.where('status').equals('completed').reverse().sortBy('date'),
+    []
+  );
+
+  // Personal records (for PR detection)
+  const allPersonalRecords = useLiveQuery(() => db.personalRecords.toArray(), []);
+
   // ==========================================
   // Elapsed timer
   // ==========================================
@@ -211,6 +233,25 @@ export default function WorkoutPage() {
       setNameValue(activeSession.name);
     }
   }, [activeSession?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Map exerciseId -> best set from last completed session
+  const lastPerfMap = useMemo(() => {
+    const map = new Map<string, { weight: number; reps: number }>();
+    if (!completedSessions) return map;
+    for (const session of completedSessions) {
+      for (const ex of session.exercises) {
+        if (!map.has(ex.exerciseId)) {
+          const best = ex.sets
+            .filter((s) => s.completed && s.weight && s.reps)
+            .sort((a, b) => (b.weight || 0) - (a.weight || 0))[0];
+          if (best?.weight && best?.reps) {
+            map.set(ex.exerciseId, { weight: best.weight, reps: best.reps });
+          }
+        }
+      }
+    }
+    return map;
+  }, [completedSessions]);
 
   // ==========================================
   // Persist helpers
@@ -313,6 +354,55 @@ export default function WorkoutPage() {
       };
     });
     persistExercises(updated);
+  };
+
+  // ==========================================
+  // PR detection + set completion handler
+  // ==========================================
+
+  const checkAndUpdatePR = async (workoutEx: WorkoutExercise, set: ExerciseSet) => {
+    if (!set.weight || !set.reps || !sessionIdRef.current) return;
+    const { exerciseId, exerciseName } = workoutEx;
+    const existing = (allPersonalRecords || []).filter((pr) => pr.exerciseId === exerciseId);
+    const now = new Date().toISOString().split('T')[0];
+    let gotNewRecord = false;
+
+    const tryUpdate = async (
+      type: 'max_weight' | 'max_reps' | 'max_volume' | 'estimated_1rm',
+      value: number,
+      unit: string
+    ) => {
+      const current = existing.find((pr) => pr.type === type);
+      if (!current || value > current.value) {
+        await db.personalRecords.put({
+          id: current?.id || uuid(),
+          exerciseId,
+          exerciseName,
+          type,
+          value,
+          unit,
+          date: now,
+          workoutSessionId: sessionIdRef.current!,
+          createdAt: current?.createdAt || new Date().toISOString(),
+        });
+        if (current) gotNewRecord = true;
+      }
+    };
+
+    await tryUpdate('max_weight', set.weight, 'kg');
+    await tryUpdate('max_reps', set.reps, 'reps');
+    await tryUpdate('max_volume', set.weight * set.reps, 'kg');
+    await tryUpdate('estimated_1rm', estimate1RM(set.weight, set.reps), 'kg');
+
+    if (gotNewRecord) setPrSnackbar(exerciseName);
+  };
+
+  const handleSetCompleted = (workoutEx: WorkoutExercise, set: ExerciseSet, completed: boolean) => {
+    updateSet(workoutEx.id, set.id, { completed });
+    if (completed) {
+      timer.start(set.restAfter || 90);
+      checkAndUpdatePR(workoutEx, { ...set, completed: true });
+    }
   };
 
   // ==========================================
@@ -600,6 +690,15 @@ export default function WorkoutPage() {
                           }}
                         />
                       )}
+                      {lastPerfMap.has(workoutEx.exerciseId) && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: 'block', mt: 0.5, fontSize: '0.7rem' }}
+                        >
+                          Dernière : {lastPerfMap.get(workoutEx.exerciseId)?.weight} kg × {lastPerfMap.get(workoutEx.exerciseId)?.reps} reps
+                        </Typography>
+                      )}
                     </Box>
 
                     {/* Machine settings button */}
@@ -802,7 +901,7 @@ export default function WorkoutPage() {
                       <Checkbox
                         checked={set.completed}
                         onChange={(e) =>
-                          updateSet(workoutEx.id, set.id, { completed: e.target.checked })
+                          handleSetCompleted(workoutEx, set, e.target.checked)
                         }
                         icon={<Box sx={{ width: 24, height: 24, borderRadius: '8px', border: '2px solid', borderColor: 'divider' }} />}
                         checkedIcon={
@@ -1196,6 +1295,84 @@ export default function WorkoutPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ============================== */}
+      {/* FLOATING REST TIMER */}
+      {/* ============================== */}
+      {(timer.isRunning || timer.isFinished) && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 168,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1001,
+            bgcolor: timer.isFinished ? 'success.main' : 'background.paper',
+            boxShadow: 6,
+            borderRadius: '20px',
+            px: 2.5,
+            py: 1.25,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            border: '2px solid',
+            borderColor: timer.isFinished ? 'success.main' : 'primary.main',
+            minWidth: 200,
+          }}
+        >
+          <TimerRounded
+            sx={{ color: timer.isFinished ? 'white' : 'primary.main', fontSize: 22 }}
+          />
+          <Box sx={{ flex: 1 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 700,
+                color: timer.isFinished ? 'white' : 'primary.main',
+                fontVariantNumeric: 'tabular-nums',
+                lineHeight: 1.2,
+              }}
+            >
+              {timer.isFinished ? t('timer.timeUp') : formatTime(timer.timeLeft)}
+            </Typography>
+            {timer.isRunning && (
+              <LinearProgress
+                variant="determinate"
+                value={timer.progress}
+                sx={{ mt: 0.5, borderRadius: 4, height: 3 }}
+              />
+            )}
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => timer.reset()}
+            sx={{ p: 0.5 }}
+          >
+            <CloseRounded
+              sx={{ fontSize: 16, color: timer.isFinished ? 'white' : 'text.secondary' }}
+            />
+          </IconButton>
+        </Box>
+      )}
+
+      {/* ============================== */}
+      {/* PR SNACKBAR */}
+      {/* ============================== */}
+      <Snackbar
+        open={!!prSnackbar}
+        autoHideDuration={3500}
+        onClose={() => setPrSnackbar(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          icon={<EmojiEventsRounded />}
+          severity="success"
+          onClose={() => setPrSnackbar(null)}
+          sx={{ borderRadius: '16px', fontWeight: 600 }}
+        >
+          🏆 Nouveau record — {prSnackbar}
+        </Alert>
+      </Snackbar>
 
       {/* ============================== */}
       {/* FINISH WORKOUT DIALOG */}
