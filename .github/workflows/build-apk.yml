@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ claude/karnet-sports-app-ulU5X, main ]
+    branches: [ claude/karnet-sports-app-ulU5X, claude/continue-karnet-project-ZhoYC, main ]
   workflow_dispatch:
 
 jobs:
