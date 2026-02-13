@@ -105,7 +105,9 @@
     "handlePosition": "Handle position",
     "cableHeight": "Cable height",
     "superset": "Superset",
-    "rpe": "Rate of Perceived Exertion (RPE)"
+    "rpe": "Rate of Perceived Exertion (RPE)",
+    "discardTitle": "Abandon this workout?",
+    "discardMessage": "The session will be permanently deleted. This cannot be undone."
   },
   "exercise": {
     "title": "Exercises",

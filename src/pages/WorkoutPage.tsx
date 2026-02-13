@@ -144,6 +144,7 @@ export default function WorkoutPage() {
   // --- Dialog states ---
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const [machineSettingsOpen, setMachineSettingsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState<string | null>(null); // workoutExercise ID
 
@@ -445,6 +446,14 @@ export default function WorkoutPage() {
   // Finish workout
   // ==========================================
 
+  const discardWorkout = async () => {
+    if (!sessionIdRef.current) return;
+    await db.workoutSessions.delete(sessionIdRef.current);
+    sessionIdRef.current = null;
+    setDiscardDialogOpen(false);
+    navigate('/');
+  };
+
   const finishWorkout = async () => {
     if (!activeSession) return;
     const endTime = new Date().toISOString();
@@ -619,6 +628,15 @@ export default function WorkoutPage() {
               {formatTime(elapsed)}
             </Typography>
             <Box sx={{ flex: 1 }} />
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => setDiscardDialogOpen(true)}
+              title={t('workout.discard')}
+              sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'error.main', p: 0.75 }}
+            >
+              <DeleteRounded fontSize="small" />
+            </IconButton>
             <Button
               variant="contained"
               color="primary"
@@ -1373,6 +1391,42 @@ export default function WorkoutPage() {
           🏆 Nouveau record — {prSnackbar}
         </Alert>
       </Snackbar>
+
+      {/* ============================== */}
+      {/* DISCARD DIALOG */}
+      {/* ============================== */}
+      <Dialog
+        open={discardDialogOpen}
+        onClose={() => setDiscardDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, textAlign: 'center', pb: 0 }}>
+          {t('workout.discardTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 1 }}>
+            {t('workout.discardMessage')}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button
+            onClick={() => setDiscardDialogOpen(false)}
+            sx={{ borderRadius: '16px', flex: 1 }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={discardWorkout}
+            startIcon={<DeleteRounded />}
+            sx={{ borderRadius: '16px', flex: 2, fontWeight: 600, py: 1.2 }}
+          >
+            {t('workout.discard')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ============================== */}
       {/* FINISH WORKOUT DIALOG */}
