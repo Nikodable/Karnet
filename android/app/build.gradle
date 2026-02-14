@@ -7,8 +7,8 @@ android {
         applicationId "com.karnet.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "0.1.0"
+        versionCode (System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() : 1)
+        versionName "0.2." + (System.getenv("BUILD_NUMBER") ?: "0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,7 +16,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Nom du fichier APK généré : Karnet-<versionName>-<variant>.apk
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            outputFileName = "Karnet-${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
+
     buildTypes {
+        debug {
+            // Suffixe d'appId pour que debug et release coexistent sur le même appareil
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

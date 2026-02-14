@@ -105,7 +105,9 @@
     "handlePosition": "Position poignées",
     "cableHeight": "Hauteur câble",
     "superset": "Super-série",
-    "rpe": "Effort perçu (RPE)"
+    "rpe": "Effort perçu (RPE)",
+    "discardTitle": "Abandonner la séance ?",
+    "discardMessage": "La séance sera supprimée définitivement. Cette action est irréversible."
   },
   "exercise": {
     "title": "Exercices",

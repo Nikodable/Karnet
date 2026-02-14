@@ -34,6 +34,12 @@ export type EquipmentType =
   | 'cardio_machine'
   | 'other';
 
+// --- Exercise Tracking Type ---
+// weight_reps: poids × reps (défaut musculation)
+// duration:    durée seule (gainage, planche, isométrique)
+// cardio:      durée + distance (tapis, vélo, elliptique)
+export type ExerciseTrackingType = 'weight_reps' | 'duration' | 'cardio';
+
 // --- Exercise ---
 export interface Exercise {
   id: string;
@@ -45,6 +51,7 @@ export interface Exercise {
   machineSettings?: MachineSettings;
   description?: string;
   descriptionEn?: string;
+  trackingType?: ExerciseTrackingType;
   isCustom: boolean;
   isMATRIX?: boolean;
   createdAt: string;

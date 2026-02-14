@@ -97,22 +97,6 @@ export default function HistoryPage() {
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  const sessionDates = useMemo(() => {
-    return new Set(filteredSessions.map((s) => s.date.split('T')[0]));
-  }, [filteredSessions]);
-
-  const monthSessions = useMemo(() => {
-    return filteredSessions.filter((s) => {
-      const d = new Date(s.date);
-      return isSameMonth(d, currentMonth);
-    });
-  }, [filteredSessions, currentMonth]);
-
-  const selectedDaySessions = useMemo(() => {
-    if (!selectedDate) return [];
-    return filteredSessions.filter((s) => isSameDay(new Date(s.date), selectedDate));
-  }, [filteredSessions, selectedDate]);
-
   // Apply exercise/muscle filter to all sessions
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
@@ -135,6 +119,22 @@ export default function HistoryPage() {
       return true;
     });
   }, [sessions, filterExercise, filterMuscle, exerciseMap, hasActiveFilter]);
+
+  const sessionDates = useMemo(() => {
+    return new Set(filteredSessions.map((s) => s.date.split('T')[0]));
+  }, [filteredSessions]);
+
+  const monthSessions = useMemo(() => {
+    return filteredSessions.filter((s) => {
+      const d = new Date(s.date);
+      return isSameMonth(d, currentMonth);
+    });
+  }, [filteredSessions, currentMonth]);
+
+  const selectedDaySessions = useMemo(() => {
+    if (!selectedDate) return [];
+    return filteredSessions.filter((s) => isSameDay(new Date(s.date), selectedDate));
+  }, [filteredSessions, selectedDate]);
 
   // Group sessions by month for list view
   const groupedSessions = useMemo(() => {

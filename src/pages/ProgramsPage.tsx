@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -33,14 +33,23 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import FitnessCenterRoundedIcon from '@mui/icons-material/FitnessCenterRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
 import { db } from '../data/db';
-import type { Program, ProgramWorkout, ProgramExercise, Exercise } from '../types';
+import { getTrackingType } from '../utils/calculations';
+import type { Program, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession } from '../types';
 
 export default function ProgramsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const programs = useLiveQuery(() => db.programs.toArray()) ?? [];
   const exercises = useLiveQuery(() => db.exercises.toArray()) ?? [];
+
+  // Map id → Exercise pour lookups de trackingType
+  const exerciseMap = useMemo(
+    () => new Map(exercises.map((e) => [e.id, e])),
+    [exercises]
+  );
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editProgram, setEditProgram] = useState<Program | null>(null);
@@ -54,6 +63,52 @@ export default function ProgramsPage() {
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
   const [currentWorkoutIndex, setCurrentWorkoutIndex] = useState(0);
   const [exerciseSearch, setExerciseSearch] = useState('');
+
+  // Lancer une séance depuis un workout template
+  const launchWorkout = async (program: Program, programWorkout: ProgramWorkout) => {
+    const active = await db.workoutSessions.where('status').equals('in_progress').first();
+    if (active) {
+      navigate('/workout/new');
+      return;
+    }
+    const now = new Date().toISOString();
+    const newSession: WorkoutSession = {
+      id: uuid(),
+      programId: program.id,
+      programName: program.name,
+      name: programWorkout.name,
+      date: now.split('T')[0],
+      startTime: now,
+      exercises: programWorkout.exercises.map((pe, idx) => {
+        const ex = exerciseMap.get(pe.exerciseId);
+        const tracking = getTrackingType(ex);
+        return {
+          id: uuid(),
+          exerciseId: pe.exerciseId,
+          exerciseName: pe.exerciseName,
+          order: idx,
+          sets: Array.from({ length: pe.targetSets }, (_, i) => ({
+            id: uuid(),
+            setNumber: i + 1,
+            type: 'normal' as const,
+            // Pré-remplir selon le type de suivi
+            weight: tracking === 'weight_reps' ? pe.targetWeight : undefined,
+            reps: tracking === 'weight_reps' ? pe.targetReps : undefined,
+            duration: tracking !== 'weight_reps' ? (pe.targetDuration ?? undefined) : undefined,
+            restAfter: pe.restBetweenSets || 90,
+            completed: false,
+          })),
+          machineSettings: pe.machineSettings,
+          notes: pe.notes,
+        };
+      }),
+      status: 'in_progress',
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.workoutSessions.put(newSession);
+    navigate('/workout/new');
+  };
 
   const resetForm = () => {
     setFormName('');
@@ -124,7 +179,7 @@ export default function ProgramsPage() {
   const updateExerciseTarget = (
     workoutIndex: number,
     exerciseIndex: number,
-    field: 'targetSets' | 'targetReps' | 'targetWeight',
+    field: 'targetSets' | 'targetReps' | 'targetWeight' | 'targetDuration',
     value: number
   ) => {
     const updated = [...formWorkouts];
@@ -243,20 +298,53 @@ export default function ProgramsPage() {
                       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                         {workout.name}
                       </Typography>
-                      {workout.exercises.map((ex) => (
-                        <Box key={ex.id} sx={{ display: 'flex', justifyContent: 'space-between', pl: 2, py: 0.5 }}>
-                          <Typography variant="body2">{ex.exerciseName}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {ex.targetSets}x{ex.targetReps}
-                            {ex.targetWeight ? ` @ ${ex.targetWeight}kg` : ''}
-                          </Typography>
-                        </Box>
-                      ))}
+                      {workout.exercises.map((ex) => {
+                          const exTracking = getTrackingType(exerciseMap.get(ex.exerciseId));
+                          return (
+                            <Box key={ex.id} sx={{ display: 'flex', justifyContent: 'space-between', pl: 2, py: 0.5 }}>
+                              <Typography variant="body2">{ex.exerciseName}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {exTracking === 'weight_reps' && (
+                                  `${ex.targetSets}×${ex.targetReps ?? '?'}${ex.targetWeight ? ` @ ${ex.targetWeight}kg` : ''}`
+                                )}
+                                {exTracking === 'duration' && (
+                                  `${ex.targetSets}×${ex.targetDuration ?? '?'}s`
+                                )}
+                                {exTracking === 'cardio' && (
+                                  `${ex.targetSets}×${ex.targetDuration ? `${Math.round(ex.targetDuration / 60)}min` : '?'}`
+                                )}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
                       {wi < program.workouts.length - 1 && <Divider sx={{ mt: 1 }} />}
                     </Box>
                   ))}
                 </Collapse>
               </CardContent>
+              {/* Boutons Lancer — un par séance template */}
+              {program.workouts.length > 0 && (
+                <Box sx={{ px: 2, pb: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                  {program.workouts.map((pw) => (
+                    <Button
+                      key={pw.id}
+                      variant="contained"
+                      size="small"
+                      startIcon={<PlayArrowRoundedIcon />}
+                      onClick={() => launchWorkout(program, pw)}
+                      sx={{ borderRadius: '14px', textTransform: 'none', fontWeight: 600, justifyContent: 'flex-start' }}
+                    >
+                      {pw.name}
+                      {pw.exercises.length > 0 && (
+                        <Typography component="span" variant="caption" sx={{ ml: 'auto', opacity: 0.75 }}>
+                          {pw.exercises.length} ex.
+                        </Typography>
+                      )}
+                    </Button>
+                  ))}
+                </Box>
+              )}
+
               <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
                 <Box>
                   <IconButton size="small" onClick={() => openEdit(program)}>
@@ -341,7 +429,9 @@ export default function ProgramsPage() {
                   </IconButton>
                 </Box>
 
-                {workout.exercises.map((ex, ei) => (
+                {workout.exercises.map((ex, ei) => {
+                  const exTracking = getTrackingType(exerciseMap.get(ex.exerciseId));
+                  return (
                   <Box
                     key={ex.id}
                     sx={{
@@ -353,34 +443,60 @@ export default function ProgramsPage() {
                       borderColor: 'divider',
                     }}
                   >
-                    <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
-                      {ex.exerciseName}
-                    </Typography>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>
+                        {ex.exerciseName}
+                      </Typography>
+                      {exTracking !== 'weight_reps' && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+                          <TimerRoundedIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
+                          <Typography variant="caption" color="text.secondary">
+                            {exTracking === 'cardio' ? 'Durée + distance' : 'Durée'}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                    {/* Nombre de séries — toujours */}
                     <TextField
                       type="number"
                       value={ex.targetSets}
                       onChange={(e) => updateExerciseTarget(wi, ei, 'targetSets', parseInt(e.target.value) || 0)}
                       size="small"
                       sx={{ width: 60 }}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">s</InputAdornment>,
-                      }}
+                      InputProps={{ endAdornment: <InputAdornment position="end">s</InputAdornment> }}
                     />
-                    <TextField
-                      type="number"
-                      value={ex.targetReps || ''}
-                      onChange={(e) => updateExerciseTarget(wi, ei, 'targetReps', parseInt(e.target.value) || 0)}
-                      size="small"
-                      sx={{ width: 60 }}
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">r</InputAdornment>,
-                      }}
-                    />
+                    {/* Reps OU durée selon tracking */}
+                    {exTracking === 'weight_reps' ? (
+                      <TextField
+                        type="number"
+                        value={ex.targetReps || ''}
+                        onChange={(e) => updateExerciseTarget(wi, ei, 'targetReps', parseInt(e.target.value) || 0)}
+                        size="small"
+                        sx={{ width: 60 }}
+                        InputProps={{ endAdornment: <InputAdornment position="end">r</InputAdornment> }}
+                      />
+                    ) : (
+                      <TextField
+                        type="number"
+                        value={exTracking === 'cardio'
+                          ? (ex.targetDuration ? Math.round(ex.targetDuration / 60) : '')
+                          : (ex.targetDuration ?? '')}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          const secs = exTracking === 'cardio' ? val * 60 : val;
+                          updateExerciseTarget(wi, ei, 'targetDuration', secs);
+                        }}
+                        size="small"
+                        sx={{ width: 70 }}
+                        InputProps={{ endAdornment: <InputAdornment position="end">{exTracking === 'cardio' ? 'min' : 's'}</InputAdornment> }}
+                      />
+                    )}
                     <IconButton size="small" onClick={() => removeExerciseFromWorkout(wi, ei)}>
                       <DeleteRoundedIcon fontSize="small" />
                     </IconButton>
                   </Box>
-                ))}
+                  );
+                })}
 
                 <Button
                   startIcon={<AddRoundedIcon />}

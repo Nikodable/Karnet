@@ -1,4 +1,16 @@
-import type { WorkoutSession, ExerciseSet, WorkoutExercise } from '../types';
+import type { WorkoutSession, ExerciseSet, WorkoutExercise, Exercise, ExerciseTrackingType } from '../types';
+
+// --- Detect tracking type for an exercise ---
+// cardio_machine OR explicit trackingType === 'cardio' → durée + distance
+// category cardio OU explicit 'duration' → durée seule
+// sinon → poids × reps
+export function getTrackingType(exercise: Exercise | null | undefined): ExerciseTrackingType {
+  if (!exercise) return 'weight_reps';
+  if (exercise.trackingType) return exercise.trackingType;
+  if (exercise.equipment === 'cardio_machine') return 'cardio';
+  if (exercise.category === 'cardio') return 'duration';
+  return 'weight_reps';
+}
 
 // ==========================================
 // Karnet - Calculation Utilities
