@@ -23,13 +23,24 @@ android {
         }
     }
 
+    signingConfigs {
+        debug {
+            storeFile file("debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
     buildTypes {
         debug {
+            signingConfig signingConfigs.debug
             // Suffixe d'appId pour que debug et release coexistent sur le même appareil
             applicationIdSuffix ".debug"
             versionNameSuffix "-debug"
         }
         release {
+            signingConfig signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

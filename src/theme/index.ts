@@ -295,10 +295,22 @@ export function createKarnetTheme(
           },
         },
       },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundColor: scheme.surfaceContainer,
+          },
+        },
+      },
       MuiDialog: {
         styleOverrides: {
           paper: {
             borderRadius: 20,
+            backgroundColor: scheme.surfaceContainerHigh,
+          },
+          paperFullScreen: {
+            borderRadius: 0,
+            backgroundColor: scheme.surface,
           },
         },
       },
