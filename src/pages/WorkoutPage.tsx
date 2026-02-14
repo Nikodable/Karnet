@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import { db } from '../data/db';
 import { useTimer } from '../hooks/useTimer';
@@ -135,6 +135,8 @@ const SlideUp = Slide;
 export default function WorkoutPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { id: routeId } = useParams<{ id: string }>();
+  const isNewRoute = routeId === 'new' || window.location.pathname === '/workout/new';
 
   // --- Session ID tracking ---
   const sessionIdRef = useRef<string | null>(null);
@@ -183,7 +185,7 @@ export default function WorkoutPage() {
 
   const activeSession = activeSessions?.[0] ?? null;
 
-  // Create a new session in a separate effect (no side-effects in useLiveQuery)
+  // Create a new session only when on /workout/new and no session is active
   const creatingRef = useRef(false);
   useEffect(() => {
     if (activeSessions === undefined) return; // still loading
@@ -191,6 +193,8 @@ export default function WorkoutPage() {
       sessionIdRef.current = activeSessions[0].id;
       return;
     }
+    // Ne créer automatiquement qu'en mode /workout/new
+    if (!isNewRoute) return;
     if (creatingRef.current) return;
 
     creatingRef.current = true;
@@ -199,7 +203,7 @@ export default function WorkoutPage() {
     db.workoutSessions.put(newSession).finally(() => {
       creatingRef.current = false;
     });
-  }, [activeSessions]);
+  }, [activeSessions, isNewRoute]);
 
   // All exercises from DB
   const allExercises = useLiveQuery(() => db.exercises.toArray(), []);
@@ -550,6 +554,12 @@ export default function WorkoutPage() {
   // ==========================================
 
   if (!activeSession) {
+    // Si le chargement est terminé et qu'il n'y a pas de séance active,
+    // on redirige vers l'accueil sauf si on est en train d'en créer une nouvelle
+    if (activeSessions !== undefined && !creatingRef.current) {
+      navigate('/', { replace: true });
+      return null;
+    }
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <Typography color="text.secondary">{t('common.loading')}</Typography>
