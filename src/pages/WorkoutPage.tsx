@@ -236,19 +236,26 @@ export default function WorkoutPage() {
     }
   }, [activeSession?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Map exerciseId -> best set from last completed session
+  // Map exerciseId -> best set from last completed session (toutes métriques)
   const lastPerfMap = useMemo(() => {
-    const map = new Map<string, { weight: number; reps: number }>();
+    const map = new Map<string, { weight?: number; reps?: number; duration?: number; distance?: number }>();
     if (!completedSessions) return map;
     for (const session of completedSessions) {
       for (const ex of session.exercises) {
         if (!map.has(ex.exerciseId)) {
-          const best = ex.sets
-            .filter((s) => s.completed && s.weight && s.reps)
-            .sort((a, b) => (b.weight || 0) - (a.weight || 0))[0];
-          if (best?.weight && best?.reps) {
-            map.set(ex.exerciseId, { weight: best.weight, reps: best.reps });
-          }
+          const done = ex.sets.filter((s) => s.completed);
+          if (done.length === 0) continue;
+          const best = done.reduce((a, b) => {
+            const aScore = (a.weight || 0) * (a.reps || 1) + (a.duration || 0);
+            const bScore = (b.weight || 0) * (b.reps || 1) + (b.duration || 0);
+            return bScore > aScore ? b : a;
+          });
+          map.set(ex.exerciseId, {
+            weight: best.weight,
+            reps: best.reps,
+            duration: best.duration,
+            distance: best.distance,
+          });
         }
       }
     }
@@ -682,8 +689,9 @@ export default function WorkoutPage() {
       ) : (
         <Stack spacing={2}>
           {activeSession.exercises.map((workoutEx) => {
-            // Find the original exercise for muscle group info
+            // Find the original exercise for muscle group + tracking info
             const originalExercise = allExercises?.find((e) => e.id === workoutEx.exerciseId);
+            const tracking = getTrackingType(originalExercise);
 
             return (
               <Card key={workoutEx.id} sx={{ borderRadius: '20px', overflow: 'visible' }}>
@@ -709,15 +717,26 @@ export default function WorkoutPage() {
                           }}
                         />
                       )}
-                      {lastPerfMap.has(workoutEx.exerciseId) && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ display: 'block', mt: 0.5, fontSize: '0.7rem' }}
-                        >
-                          Dernière : {lastPerfMap.get(workoutEx.exerciseId)?.weight} kg × {lastPerfMap.get(workoutEx.exerciseId)?.reps} reps
-                        </Typography>
-                      )}
+                      {(() => {
+                        const lp = lastPerfMap.get(workoutEx.exerciseId);
+                        if (!lp) return null;
+                        let txt = '';
+                        if (tracking === 'cardio') {
+                          const mins = lp.duration ? Math.round(lp.duration / 60) : null;
+                          const km = lp.distance ? (lp.distance / 1000).toFixed(1) : null;
+                          txt = [mins && `${mins} min`, km && `${km} km`].filter(Boolean).join(' · ');
+                        } else if (tracking === 'duration') {
+                          txt = lp.duration ? `${lp.duration}s` : '';
+                        } else {
+                          txt = lp.weight && lp.reps ? `${lp.weight} kg × ${lp.reps} reps` : '';
+                        }
+                        if (!txt) return null;
+                        return (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.7rem' }}>
+                            Dernière : {txt}
+                          </Typography>
+                        );
+                      })()}
                     </Box>
 
                     {/* Machine settings button */}
@@ -779,61 +798,69 @@ export default function WorkoutPage() {
                     />
                   )}
 
-                  {/* Sets header row */}
+                  {/* Sets header row — colonnes selon trackingType */}
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '36px 72px 72px 56px 40px 36px 36px',
+                      gridTemplateColumns: tracking === 'cardio'
+                        ? '36px 1fr 1fr 40px 36px 36px'
+                        : tracking === 'duration'
+                          ? '36px 1fr 40px 36px 36px'
+                          : '36px 72px 72px 56px 40px 36px 36px',
                       gap: 0.5,
                       alignItems: 'center',
                       mb: 0.5,
                       px: 0.5,
                     }}
                   >
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>
-                      #
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>
-                      {t('workout.weight')}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>
-                      {t('workout.reps')}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>
-                      RPE
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>
-                      {t('workout.rest')}
-                    </Typography>
-                    <Box /> {/* Completed */}
-                    <Box /> {/* Delete */}
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>#</Typography>
+                    {tracking === 'weight_reps' && <>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>{t('workout.weight')}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>{t('workout.reps')}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>RPE</Typography>
+                    </>}
+                    {tracking === 'duration' && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>Durée (s)</Typography>
+                    )}
+                    {tracking === 'cardio' && <>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>Durée (min)</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>Distance (km)</Typography>
+                    </>}
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'center' }}>{t('workout.rest')}</Typography>
+                    <Box />{/* ✓ */}
+                    <Box />{/* 🗑 */}
                   </Box>
 
-                  {/* Sets rows */}
+                  {/* Sets rows — champs selon trackingType */}
                   {workoutEx.sets.map((set) => (
                     <Box
                       key={set.id}
                       sx={{
                         display: 'grid',
-                        gridTemplateColumns: '36px 72px 72px 56px 40px 36px 36px',
+                        gridTemplateColumns: tracking === 'cardio'
+                          ? '36px 1fr 1fr 40px 36px 36px'
+                          : tracking === 'duration'
+                            ? '36px 1fr 40px 36px 36px'
+                            : '36px 72px 72px 56px 40px 36px 36px',
                         gap: 0.5,
                         alignItems: 'center',
                         py: 0.5,
                         px: 0.5,
                         borderRadius: '12px',
-                        bgcolor: set.completed ? 'success.main' : 'transparent',
                         ...(set.completed && { bgcolor: (theme) => `${theme.palette.success.main}14` }),
                         transition: 'background-color 0.2s',
                       }}
                     >
-                      {/* Set number + type chip */}
+                      {/* Set number chip */}
                       <Chip
                         label={set.setNumber}
                         size="small"
                         onClick={() => {
-                          const currentIndex = SET_TYPES.indexOf(set.type);
-                          const nextType = SET_TYPES[(currentIndex + 1) % SET_TYPES.length];
-                          updateSet(workoutEx.id, set.id, { type: nextType });
+                          // Pour cardio/duration on ne cycle que normal/warmup
+                          const types = tracking !== 'weight_reps' ? (['normal', 'warmup'] as const) : SET_TYPES;
+                          const idx = types.indexOf(set.type as typeof types[number]);
+                          const next = types[(idx + 1) % types.length];
+                          updateSet(workoutEx.id, set.id, { type: next });
                         }}
                         sx={{
                           bgcolor: SET_TYPE_COLORS[set.type] + '30',
@@ -849,70 +876,84 @@ export default function WorkoutPage() {
                         title={t(`workout.${set.type}`)}
                       />
 
-                      {/* Weight */}
-                      <TextField
-                        type="number"
-                        value={set.weight ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
-                          updateSet(workoutEx.id, set.id, { weight: val });
-                        }}
-                        size="small"
-                        placeholder="0"
-                        inputProps={{ min: 0, step: 0.5, style: { textAlign: 'center', padding: '6px 4px', fontSize: '0.85rem' } }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': { borderRadius: '10px', height: 34 },
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
-                        }}
-                      />
+                      {/* === weight_reps === */}
+                      {tracking === 'weight_reps' && <>
+                        <TextField
+                          type="number"
+                          value={set.weight ?? ''}
+                          onChange={(e) => updateSet(workoutEx.id, set.id, { weight: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                          size="small"
+                          placeholder="0"
+                          inputProps={{ min: 0, step: 0.5, style: { textAlign: 'center', padding: '6px 4px', fontSize: '0.85rem' } }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', height: 34 } }}
+                        />
+                        <TextField
+                          type="number"
+                          value={set.reps ?? ''}
+                          onChange={(e) => updateSet(workoutEx.id, set.id, { reps: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })}
+                          size="small"
+                          placeholder="0"
+                          inputProps={{ min: 0, step: 1, style: { textAlign: 'center', padding: '6px 4px', fontSize: '0.85rem' } }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', height: 34 } }}
+                        />
+                        <Select
+                          value={set.rpe ?? ''}
+                          onChange={(e) => updateSet(workoutEx.id, set.id, { rpe: String(e.target.value) === '' ? undefined : Number(e.target.value) })}
+                          size="small"
+                          displayEmpty
+                          sx={{ borderRadius: '10px', height: 34, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.5, textAlign: 'center' } }}
+                        >
+                          <MenuItem value="">-</MenuItem>
+                          {[1,2,3,4,5,6,7,8,9,10].map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                        </Select>
+                      </>}
 
-                      {/* Reps */}
-                      <TextField
-                        type="number"
-                        value={set.reps ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                          updateSet(workoutEx.id, set.id, { reps: val });
-                        }}
-                        size="small"
-                        placeholder="0"
-                        inputProps={{ min: 0, step: 1, style: { textAlign: 'center', padding: '6px 4px', fontSize: '0.85rem' } }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': { borderRadius: '10px', height: 34 },
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
-                        }}
-                      />
+                      {/* === duration (gainage, etc.) — en secondes === */}
+                      {tracking === 'duration' && (
+                        <TextField
+                          type="number"
+                          value={set.duration ?? ''}
+                          onChange={(e) => updateSet(workoutEx.id, set.id, { duration: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })}
+                          size="small"
+                          placeholder="30"
+                          inputProps={{ min: 0, step: 5, style: { textAlign: 'center', padding: '6px 4px', fontSize: '0.85rem' } }}
+                          InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5, whiteSpace: 'nowrap' }}>s</Typography> }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', height: 34 } }}
+                        />
+                      )}
 
-                      {/* RPE */}
-                      <Select
-                        value={set.rpe ?? ''}
-                        onChange={(e) => {
-                          const val = String(e.target.value) === '' ? undefined : Number(e.target.value);
-                          updateSet(workoutEx.id, set.id, { rpe: val });
-                        }}
-                        size="small"
-                        displayEmpty
-                        sx={{
-                          borderRadius: '10px',
-                          height: 34,
-                          fontSize: '0.8rem',
-                          '& .MuiSelect-select': { py: 0.5, textAlign: 'center' },
-                        }}
-                      >
-                        <MenuItem value="">-</MenuItem>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((v) => (
-                          <MenuItem key={v} value={v}>
-                            {v}
-                          </MenuItem>
-                        ))}
-                      </Select>
+                      {/* === cardio (tapis, vélo…) — durée en min + distance en km === */}
+                      {tracking === 'cardio' && <>
+                        <TextField
+                          type="number"
+                          value={set.duration != null ? Math.round(set.duration / 60) : ''}
+                          onChange={(e) => {
+                            const mins = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            updateSet(workoutEx.id, set.id, { duration: mins != null ? Math.round(mins * 60) : undefined });
+                          }}
+                          size="small"
+                          placeholder="0"
+                          inputProps={{ min: 0, step: 1, style: { textAlign: 'center', padding: '6px 4px', fontSize: '0.85rem' } }}
+                          InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>min</Typography> }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', height: 34 } }}
+                        />
+                        <TextField
+                          type="number"
+                          value={set.distance != null ? (set.distance / 1000).toFixed(1) : ''}
+                          onChange={(e) => {
+                            const km = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            updateSet(workoutEx.id, set.id, { distance: km != null ? km * 1000 : undefined });
+                          }}
+                          size="small"
+                          placeholder="0"
+                          inputProps={{ min: 0, step: 0.1, style: { textAlign: 'center', padding: '6px 4px', fontSize: '0.85rem' } }}
+                          InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>km</Typography> }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', height: 34 } }}
+                        />
+                      </>}
 
-                      {/* Rest time (display) */}
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
-                      >
+                      {/* Rest time */}
+                      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
                         {set.restAfter ? `${Math.floor(set.restAfter / 60)}:${(set.restAfter % 60).toString().padStart(2, '0')}` : '-'}
                       </Typography>
 
