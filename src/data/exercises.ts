@@ -1,4 +1,4 @@
-import type { Exercise } from '../types';
+import type { Exercise, ExerciseTrackingType } from '../types';
 import { v4 as uuid } from 'uuid';
 
 // ==========================================
@@ -16,6 +16,7 @@ function ex(
   equipment: Exercise['equipment'],
   opts?: {
     isMATRIX?: boolean;
+    trackingType?: ExerciseTrackingType;
     description?: string;
     descriptionEn?: string;
     machineSettings?: Exercise['machineSettings'];
@@ -30,6 +31,7 @@ function ex(
     equipment,
     isCustom: false,
     isMATRIX: opts?.isMATRIX || false,
+    trackingType: opts?.trackingType,
     description: opts?.description,
     descriptionEn: opts?.descriptionEn,
     machineSettings: opts?.machineSettings,
@@ -138,21 +140,21 @@ export const defaultExercises: Exercise[] = [
   ex('Crunch', 'Crunch', 'abs', [], 'bodyweight'),
   ex('Crunch poulie haute', 'Cable Crunch', 'abs', [], 'cable'),
   ex('Relevé de jambes suspendu', 'Hanging Leg Raise', 'abs', ['obliques'], 'bodyweight'),
-  ex('Gainage (planche)', 'Plank', 'abs', ['obliques'], 'bodyweight'),
-  ex('Gainage latéral', 'Side Plank', 'obliques', ['abs'], 'bodyweight'),
+  ex('Gainage (planche)', 'Plank', 'abs', ['obliques'], 'bodyweight', { trackingType: 'duration' }),
+  ex('Gainage latéral', 'Side Plank', 'obliques', ['abs'], 'bodyweight', { trackingType: 'duration' }),
   ex('Russian twist', 'Russian Twist', 'obliques', ['abs'], 'bodyweight'),
   ex('Ab wheel (roue abdominale)', 'Ab Wheel Rollout', 'abs', ['obliques'], 'bodyweight'),
-  ex('Mountain climbers', 'Mountain Climbers', 'abs', ['cardio'], 'bodyweight'),
+  ex('Mountain climbers', 'Mountain Climbers', 'abs', ['cardio'], 'bodyweight', { trackingType: 'duration' }),
   ex('Crunch inversé', 'Reverse Crunch', 'abs', [], 'bodyweight'),
 
   // ========== CARDIO ==========
-  ex('Course sur tapis', 'Treadmill Running', 'cardio', [], 'cardio_machine'),
-  ex('Vélo elliptique', 'Elliptical', 'cardio', [], 'cardio_machine'),
-  ex('Vélo stationnaire', 'Stationary Bike', 'cardio', ['quadriceps'], 'cardio_machine'),
-  ex('Rameur', 'Rowing Machine', 'cardio', ['back', 'biceps'], 'cardio_machine'),
-  ex('Corde à sauter', 'Jump Rope', 'cardio', ['calves'], 'bodyweight'),
-  ex('Stepper', 'Stair Stepper', 'cardio', ['quadriceps', 'glutes'], 'cardio_machine'),
-  ex('Burpees', 'Burpees', 'cardio', ['full_body'], 'bodyweight'),
+  ex('Course sur tapis', 'Treadmill Running', 'cardio', [], 'cardio_machine', { trackingType: 'cardio' }),
+  ex('Vélo elliptique', 'Elliptical', 'cardio', [], 'cardio_machine', { trackingType: 'cardio' }),
+  ex('Vélo stationnaire', 'Stationary Bike', 'cardio', ['quadriceps'], 'cardio_machine', { trackingType: 'cardio' }),
+  ex('Rameur', 'Rowing Machine', 'cardio', ['back', 'biceps'], 'cardio_machine', { trackingType: 'cardio' }),
+  ex('Corde à sauter', 'Jump Rope', 'cardio', ['calves'], 'bodyweight', { trackingType: 'duration' }),
+  ex('Stepper', 'Stair Stepper', 'cardio', ['quadriceps', 'glutes'], 'cardio_machine', { trackingType: 'cardio' }),
+  ex('Burpees', 'Burpees', 'cardio', ['full_body'], 'bodyweight', { trackingType: 'duration' }),
 
   // ========== CORPS ENTIER / FULL BODY ==========
   ex('Clean and jerk', 'Clean and Jerk', 'full_body', ['shoulders', 'quadriceps', 'back'], 'barbell'),
