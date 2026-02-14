@@ -856,11 +856,14 @@ export default function WorkoutPage() {
                         label={set.setNumber}
                         size="small"
                         onClick={() => {
-                          // Pour cardio/duration on ne cycle que normal/warmup
-                          const types = tracking !== 'weight_reps' ? (['normal', 'warmup'] as const) : SET_TYPES;
-                          const idx = types.indexOf(set.type as typeof types[number]);
-                          const next = types[(idx + 1) % types.length];
-                          updateSet(workoutEx.id, set.id, { type: next });
+                          if (tracking !== 'weight_reps') {
+                            // Cardio/durée : cycle uniquement normal ↔ warmup
+                            const next = set.type === 'warmup' ? 'normal' : 'warmup';
+                            updateSet(workoutEx.id, set.id, { type: next });
+                          } else {
+                            const idx = SET_TYPES.indexOf(set.type);
+                            updateSet(workoutEx.id, set.id, { type: SET_TYPES[(idx + 1) % SET_TYPES.length] });
+                          }
                         }}
                         sx={{
                           bgcolor: SET_TYPE_COLORS[set.type] + '30',
