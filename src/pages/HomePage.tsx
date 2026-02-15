@@ -91,15 +91,6 @@ export default function HomePage() {
     [],
   );
 
-  const activeProgram = useLiveQuery(
-    () =>
-      db.programs
-        .where('isActive')
-        .equals(1)
-        .first(),
-    [],
-  );
-
   const allPrograms = useLiveQuery(
     () => db.programs.orderBy('name').toArray(),
     [],
@@ -505,7 +496,7 @@ export default function HomePage() {
                         </Typography>
                       )}
                     </Box>
-                    {program.isActive === 1 && (
+                    {program.isActive && (
                       <Chip
                         label={t('home.activeLabel')}
                         size="small"

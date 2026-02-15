@@ -80,7 +80,6 @@ export default function SettingsPage() {
         workoutSessions: await db.workoutSessions.toArray(),
         exercises: await db.exercises.filter((e) => e.isCustom).toArray(),
         programs: await db.programs.toArray(),
-        plannedWorkouts: await db.plannedWorkouts.toArray(),
         objectives: await db.objectives.toArray(),
         bodyMeasurements: await db.bodyMeasurements.toArray(),
         personalRecords: await db.personalRecords.toArray(),
@@ -154,10 +153,6 @@ export default function SettingsPage() {
       if (data.programs?.length) {
         await db.programs.clear();
         await db.programs.bulkPut(data.programs);
-      }
-      if (data.plannedWorkouts?.length) {
-        await db.plannedWorkouts.clear();
-        await db.plannedWorkouts.bulkPut(data.plannedWorkouts);
       }
       if (data.objectives?.length) {
         await db.objectives.clear();
