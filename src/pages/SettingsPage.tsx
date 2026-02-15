@@ -75,28 +75,43 @@ export default function SettingsPage() {
   const handleBackup = useCallback(async () => {
     try {
       const data = {
-        version: '0.2.0',
+        version: __APP_VERSION__,
         exportDate: new Date().toISOString(),
         workoutSessions: await db.workoutSessions.toArray(),
         exercises: await db.exercises.filter((e) => e.isCustom).toArray(),
         programs: await db.programs.toArray(),
+        plannedWorkouts: await db.plannedWorkouts.toArray(),
         objectives: await db.objectives.toArray(),
         bodyMeasurements: await db.bodyMeasurements.toArray(),
         personalRecords: await db.personalRecords.toArray(),
         userSettings: await db.userSettings.toArray(),
       };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
+      const json = JSON.stringify(data, null, 2);
       const date = new Date().toISOString().split('T')[0];
-      a.download = `karnet-backup-${date}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const filename = `karnet-backup-${date}.json`;
+
+      // Sur Android (Capacitor WebView), navigator.share est disponible et
+      // plus fiable que <a download> pour sauvegarder dans les fichiers.
+      if (navigator.share && navigator.canShare?.({ files: [new File([json], filename, { type: 'application/json' })] })) {
+        await navigator.share({
+          files: [new File([json], filename, { type: 'application/json' })],
+          title: filename,
+        });
+      } else {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
       setSnackbar({ open: true, message: t('settings.backupSuccess'), severity: 'success' });
-    } catch {
+    } catch (err) {
+      // L'utilisateur a annulé le share → pas une erreur
+      if (err instanceof Error && err.name === 'AbortError') return;
       setSnackbar({ open: true, message: t('common.error'), severity: 'error' });
     }
   }, [t]);
@@ -123,6 +138,12 @@ export default function SettingsPage() {
       const data = JSON.parse(text);
       if (!data.version || !data.exportDate) throw new Error('Invalid backup file');
 
+      // Vérification de compatibilité : on accepte les backups dont le major
+      // est ≤ au major de l'app courante (format rétrocompatible).
+      const [fileMajor] = (data.version as string).split('.').map(Number);
+      const [appMajor] = __APP_VERSION__.split('.').map(Number);
+      if (fileMajor > appMajor) throw new Error('Backup version too recent');
+
       if (data.workoutSessions?.length) {
         await db.workoutSessions.clear();
         await db.workoutSessions.bulkPut(data.workoutSessions);
@@ -133,6 +154,10 @@ export default function SettingsPage() {
       if (data.programs?.length) {
         await db.programs.clear();
         await db.programs.bulkPut(data.programs);
+      }
+      if (data.plannedWorkouts?.length) {
+        await db.plannedWorkouts.clear();
+        await db.plannedWorkouts.bulkPut(data.plannedWorkouts);
       }
       if (data.objectives?.length) {
         await db.objectives.clear();
