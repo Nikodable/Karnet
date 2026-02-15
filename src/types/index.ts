@@ -2,6 +2,9 @@
 // Karnet - Type Definitions
 // ==========================================
 
+// Vite define
+declare const __APP_VERSION__: string;
+
 // --- Muscle Groups ---
 export type MuscleGroup =
   | 'chest'

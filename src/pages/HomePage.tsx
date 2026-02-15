@@ -28,7 +28,7 @@ import {
   formatDuration,
   formatWeight,
 } from '../utils/calculations';
-import type { WorkoutSession, ProgramWorkout } from '../types';
+import type { WorkoutSession, ProgramWorkout, Program } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,12 +91,8 @@ export default function HomePage() {
     [],
   );
 
-  const activeProgram = useLiveQuery(
-    () =>
-      db.programs
-        .where('isActive')
-        .equals(1)
-        .first(),
+  const allPrograms = useLiveQuery(
+    () => db.programs.orderBy('name').toArray(),
     [],
   );
 
@@ -148,7 +144,7 @@ export default function HomePage() {
 
   // ---- Quick start from program ----
   const startWorkoutFromProgram = useCallback(
-    async (programWorkout: ProgramWorkout) => {
+    async (programWorkout: ProgramWorkout, program: Program) => {
       // If a session is already running, just navigate to it
       if (activeSession) {
         navigate('/workout/new');
@@ -157,8 +153,8 @@ export default function HomePage() {
       const now = new Date().toISOString();
       const newSession: WorkoutSession = {
         id: uuid(),
-        programId: activeProgram?.id,
-        programName: activeProgram?.name,
+        programId: program.id,
+        programName: program.name,
         name: programWorkout.name,
         date: now.split('T')[0],
         startTime: now,
@@ -186,7 +182,7 @@ export default function HomePage() {
       await db.workoutSessions.put(newSession);
       navigate('/workout/new');
     },
-    [activeSession, activeProgram, navigate]
+    [activeSession, navigate]
   );
 
   // =====================================================================
@@ -444,179 +440,123 @@ export default function HomePage() {
       </Box>
 
       {/* ======================================== */}
-      {/* 4. ACTIVE PROGRAM                         */}
+      {/* 4. MES PROGRAMMES (quick-launch)          */}
       {/* ======================================== */}
       <Box>
-        <Typography
-          variant="subtitle2"
-          sx={{
-            color: colors.onSurfaceVariant,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            mb: 1,
-            px: 0.5,
-          }}
-        >
-          {t('home.activeProgram')}
-        </Typography>
-
-        {activeProgram ? (
-          <Card
-            elevation={0}
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1, px: 0.5 }}>
+          <Typography
+            variant="subtitle2"
             sx={{
-              borderRadius: '16px',
-              backgroundColor: colors.surfaceContainerLow,
-              cursor: 'pointer',
+              color: colors.onSurfaceVariant,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
             }}
-            onClick={() => navigate(`/programs/${activeProgram.id}`)}
           >
-            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Avatar
-                  sx={{
-                    bgcolor: `${colors.primary}18`,
-                    color: colors.primary,
-                    width: 44,
-                    height: 44,
-                  }}
-                >
-                  <FitnessCenterRounded />
-                </Avatar>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{
-                      fontWeight: 600,
-                      color: colors.onSurface,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {activeProgram.name}
-                  </Typography>
-                  {activeProgram.description && (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: colors.onSurfaceVariant,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        display: 'block',
-                      }}
-                    >
-                      {activeProgram.description}
+            {t('home.myPrograms')}
+          </Typography>
+          {(allPrograms?.length ?? 0) > 0 && (
+            <Button
+              size="small"
+              onClick={() => navigate('/programs')}
+              sx={{ color: colors.primary, fontWeight: 600, textTransform: 'none', minWidth: 'auto', px: 1 }}
+            >
+              {t('home.viewAll')}
+            </Button>
+          )}
+        </Stack>
+
+        {allPrograms && allPrograms.length > 0 ? (
+          <Stack spacing={1.5}>
+            {allPrograms.map((program) => (
+              <Card
+                key={program.id}
+                elevation={0}
+                sx={{
+                  borderRadius: '16px',
+                  backgroundColor: colors.surfaceContainerLow,
+                  border: program.isActive ? `1.5px solid ${colors.primary}55` : 'none',
+                }}
+              >
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  {/* En-tête programme */}
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: program.workouts.length > 0 ? 1.5 : 0 }}>
+                    <Avatar sx={{ bgcolor: `${colors.primary}18`, color: colors.primary, width: 36, height: 36 }}>
+                      <FitnessCenterRounded fontSize="small" />
+                    </Avatar>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, color: colors.onSurface, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {program.name}
+                      </Typography>
+                      {program.frequency && (
+                        <Typography variant="caption" sx={{ color: colors.onSurfaceVariant }}>
+                          {t('home.sessionsPerWeek', { count: program.frequency })}
+                        </Typography>
+                      )}
+                    </Box>
+                    {program.isActive && (
+                      <Chip
+                        label={t('home.activeLabel')}
+                        size="small"
+                        sx={{ bgcolor: `${colors.primary}18`, color: colors.primary, fontWeight: 600, fontSize: '0.7rem', height: 22 }}
+                      />
+                    )}
+                  </Stack>
+
+                  {/* Boutons de lancement rapide par séance */}
+                  {program.workouts.length > 0 ? (
+                    <Stack spacing={0.75}>
+                      {program.workouts.map((pw) => (
+                        <Button
+                          key={pw.id}
+                          variant="outlined"
+                          size="small"
+                          startIcon={<PlayArrowRounded />}
+                          onClick={() => startWorkoutFromProgram(pw, program)}
+                          sx={{
+                            borderRadius: '12px',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            justifyContent: 'flex-start',
+                            borderColor: `${colors.primary}33`,
+                            color: colors.primary,
+                            fontSize: '0.8rem',
+                            py: 0.75,
+                            '&:hover': { borderColor: colors.primary, bgcolor: `${colors.primary}08` },
+                          }}
+                        >
+                          {pw.name}
+                          {pw.exercises.length > 0 && (
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              sx={{ ml: 'auto', color: colors.onSurfaceVariant, opacity: 0.7 }}
+                            >
+                              {pw.exercises.length} ex.
+                            </Typography>
+                          )}
+                        </Button>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Typography variant="caption" sx={{ color: colors.onSurfaceVariant, opacity: 0.7 }}>
+                      {t('home.noWorkoutsInProgram')}
                     </Typography>
                   )}
-                </Box>
-                <Stack direction="row" spacing={0.5}>
-                  {activeProgram.frequency && (
-                    <Chip
-                      label={t('home.sessionsPerWeek', { count: activeProgram.frequency })}
-                      size="small"
-                      sx={{
-                        bgcolor: `${colors.primary}14`,
-                        color: colors.primary,
-                        fontWeight: 500,
-                        fontSize: '0.7rem',
-                      }}
-                    />
-                  )}
-                </Stack>
-              </Stack>
-              {activeProgram.workouts.length > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      activeProgram.frequency
-                        ? Math.min((weekSessions / activeProgram.frequency) * 100, 100)
-                        : 0
-                    }
-                    sx={{
-                      borderRadius: 4,
-                      height: 6,
-                      bgcolor: `${colors.primary}18`,
-                      '& .MuiLinearProgress-bar': {
-                        bgcolor: colors.primary,
-                        borderRadius: 4,
-                      },
-                    }}
-                  />
-                  <Typography
-                    variant="caption"
-                    sx={{ color: colors.onSurfaceVariant, mt: 0.5, display: 'block' }}
-                  >
-                    {activeProgram.frequency
-                      ? t('home.weeklyProgress', {
-                          done: weekSessions,
-                          total: activeProgram.frequency,
-                        })
-                      : t('home.workoutsCount', { count: activeProgram.workouts.length })}
-                  </Typography>
-
-                  {/* Quick-start buttons for each program workout */}
-                  <Stack spacing={0.75} sx={{ mt: 1.5 }}>
-                    {activeProgram.workouts.map((pw) => (
-                      <Button
-                        key={pw.id}
-                        variant="outlined"
-                        size="small"
-                        startIcon={<PlayArrowRounded />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startWorkoutFromProgram(pw);
-                        }}
-                        sx={{
-                          borderRadius: '14px',
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          justifyContent: 'flex-start',
-                          borderColor: `${colors.primary}44`,
-                          color: colors.primary,
-                          fontSize: '0.8rem',
-                          py: 0.75,
-                          '&:hover': { borderColor: colors.primary, bgcolor: `${colors.primary}08` },
-                        }}
-                      >
-                        {pw.name}
-                        {pw.exercises.length > 0 && (
-                          <Typography
-                            component="span"
-                            variant="caption"
-                            sx={{ ml: 'auto', color: colors.onSurfaceVariant, opacity: 0.7 }}
-                          >
-                            {pw.exercises.length} ex.
-                          </Typography>
-                        )}
-                      </Button>
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
         ) : (
-          /* --- No active program (empty state) --- */
+          /* --- Aucun programme — état vide --- */
           <Card
             elevation={0}
-            sx={{
-              borderRadius: '16px',
-              backgroundColor: colors.surfaceContainerLow,
-              border: `1px dashed ${colors.outline}`,
-            }}
+            sx={{ borderRadius: '16px', backgroundColor: colors.surfaceContainerLow, border: `1px dashed ${colors.outline}` }}
           >
             <CardContent
-              sx={{
-                p: 2.5,
-                '&:last-child': { pb: 2.5 },
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 1.5,
-                textAlign: 'center',
-              }}
+              sx={{ p: 2.5, '&:last-child': { pb: 2.5 }, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, textAlign: 'center' }}
             >
               <Typography variant="body2" sx={{ color: colors.onSurfaceVariant }}>
                 {t('home.noProgramYet')}
@@ -624,14 +564,8 @@ export default function HomePage() {
               <Button
                 variant="outlined"
                 size="small"
-                onClick={() => navigate('/programs/new')}
-                sx={{
-                  borderRadius: '16px',
-                  borderColor: colors.primary,
-                  color: colors.primary,
-                  fontWeight: 600,
-                  textTransform: 'none',
-                }}
+                onClick={() => navigate('/programs')}
+                sx={{ borderRadius: '16px', borderColor: colors.primary, color: colors.primary, fontWeight: 600, textTransform: 'none' }}
               >
                 {t('home.createProgram')}
               </Button>
